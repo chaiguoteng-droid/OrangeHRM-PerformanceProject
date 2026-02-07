@@ -1,13 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        JMETER_HOME = "D:\\JMeter\\apache-jmeter-5.6.3\\bin"
-        TEST_PLAN   = "jmeter\\testplans\\orangehrm_login_load_test.jmx"
-        RESULT_FILE = "jmeter\\results\\result.jtl"
-        REPORT_DIR  = "jmeter\\report"
-    }
-
     stages {
 
         stage("Checkout") {
@@ -16,28 +9,29 @@ pipeline {
             }
         }
 
-        stage("Run JMeter Load Test") {
+        stage("Run JMeter Load Test (Docker)") {
             steps {
-                echo "🚀 Running OrangeHRM Login Load Test..."
+                echo "🚀 Running OrangeHRM Login Load Test using Docker JMeter..."
 
-                bat """
-                echo ==========================================
-                echo Cleaning old results...
-                echo ==========================================
+                sh """
+                echo "=========================================="
+                echo "Preparing folders..."
+                echo "=========================================="
 
-                if not exist jmeter\\results mkdir jmeter\\results
+                mkdir -p jmeter/results
+                rm -rf jmeter/report
 
-                REM JMeter requires report folder to be empty
-                if exist %REPORT_DIR% rmdir /s /q %REPORT_DIR%
+                echo "=========================================="
+                echo "Executing JMeter Test Plan..."
+                echo "=========================================="
 
-                echo ==========================================
-                echo Executing JMeter Test Plan...
-                echo ==========================================
-
-                "%JMETER_HOME%\\jmeter.bat" -n ^
-                  -t "%TEST_PLAN%" ^
-                  -l "%RESULT_FILE%" ^
-                  -e -o "%REPORT_DIR%"
+                docker run --rm \
+                  -v \$(pwd):/tests \
+                  justb4/jmeter \
+                  -n \
+                  -t /tests/jmeter/testplans/orangehrm_login_load_test.jmx \
+                  -l /tests/jmeter/results/result.jtl \
+                  -e -o /tests/jmeter/report
                 """
             }
         }
@@ -60,7 +54,7 @@ pipeline {
 
     post {
         always {
-            echo "📦 Archiving test artifacts..."
+            echo "📦 Archiving artifacts..."
 
             archiveArtifacts artifacts: 'jmeter/results/*.jtl', fingerprint: true
             archiveArtifacts artifacts: 'jmeter/report/**', fingerprint: false
@@ -71,7 +65,7 @@ pipeline {
         }
 
         failure {
-            echo "❌ Performance Test Failed! Check Jenkins console output."
+            echo "❌ Performance Test Failed! Check console output."
         }
     }
 }
