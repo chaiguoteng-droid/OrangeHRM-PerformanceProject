@@ -1,0 +1,43 @@
+# =========================
+# JMeter Outputs
+# =========================
+*.jtl
+*.log
+
+jmeter/results/
+jmeter/report/
+
+# =========================
+# Allure Outputs (future)
+# =========================
+allure-results/
+allure-report/
+
+# =========================
+# Grafana / InfluxDB Local Data
+# =========================
+grafana.db
+performance-monitoring/grafana-data/
+performance-monitoring/influxdb-data/
+
+# =========================
+# Docker Volumes / Temp
+# =========================
+*.db
+*.sqlite
+
+# =========================
+# OS / IDE Files
+# =========================
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+
+# =========================
+# Java Build
+# =========================
+target/
+*.class
+
