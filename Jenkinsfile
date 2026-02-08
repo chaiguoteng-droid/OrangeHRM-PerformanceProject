@@ -11,7 +11,7 @@ pipeline {
 
         stage("Run JMeter Load Test") {
             steps {
-                bat """
+                bat '''
                 echo ==========================================
                 echo Running OrangeHRM Login Load Test...
                 echo ==========================================
@@ -20,37 +20,33 @@ pipeline {
                 set JAVA_HOME=C:\\Program Files\\Java\\jdk-21
                 set PATH=%JAVA_HOME%\\bin;%PATH%
 
-                java -version
-
                 REM Prepare folders
                 if not exist "jmeter\\results" mkdir "jmeter\\results"
 
-                REM Clean old JTL (Fix: file not empty)
+                REM Clean old result file
                 if exist "jmeter\\results\\result.jtl" del /q "jmeter\\results\\result.jtl"
 
-                REM Clean old HTML report
+                REM Delete old report folder
                 if exist "jmeter\\report" rmdir /s /q "jmeter\\report"
 
                 echo Starting JMeter execution...
 
-                REM Run JMeter Test + Generate Dashboard
+                REM Run JMeter with XML output (MOST STABLE)
                 java -jar "D:\\JMeter\\apache-jmeter-5.6.3\\bin\\ApacheJMeter.jar" ^
-                -n ^
-                -t "jmeter\\testplans\\orangehrm_login_load_test.jmx" ^
-                -l "jmeter\\results\\result.jtl" ^
-                -e -o "jmeter\\report" ^
-                -Jjmeter.save.saveservice.output_format=csv ^
-                -Jjmeter.save.saveservice.print_field_names=true ^
-                -Jjmeter.save.saveservice.timestamp_format=ms
+                  -n ^
+                  -t "jmeter\\testplans\\orangehrm_login_load_test.jmx" ^
+                  -l "jmeter\\results\\result.jtl" ^
+                  -Jjmeter.save.saveservice.output_format=xml ^
+                  -e -o "jmeter\\report"
 
                 echo ==========================================
                 echo JMeter Test Completed Successfully!
                 echo ==========================================
-                """
+                '''
             }
         }
 
-        stage("Archive JTL Results") {
+        stage("Archive Results") {
             steps {
                 archiveArtifacts artifacts: "jmeter/results/result.jtl", fingerprint: true
             }
@@ -63,8 +59,7 @@ pipeline {
                     reportFiles: "index.html",
                     reportName: "OrangeHRM JMeter Performance Report",
                     keepAll: true,
-                    alwaysLinkToLastBuild: true,
-                    allowMissing: false
+                    alwaysLinkToLastBuild: true
                 ])
             }
         }
@@ -72,7 +67,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline SUCCESS! JMeter Dashboard Published."
+            echo "✅ Pipeline SUCCESS! JMeter Dashboard Generated."
         }
         failure {
             echo "❌ Pipeline FAILED! Check Console Output."
