@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        JAVA21_HOME = "C:\\Program Files\\Java\\jdk-21"
-        JMETER_JAR  = "D:\\JMeter\\apache-jmeter-5.6.3\\bin\\ApacheJMeter.jar"
-    }
-
     stages {
 
         stage("Checkout") {
@@ -17,51 +12,70 @@ pipeline {
         stage("Run JMeter Load Test") {
             steps {
                 bat """
+                echo ==========================================
                 echo Running OrangeHRM Login Load Test...
+                echo ==========================================
 
-                set JAVA_HOME=%JAVA21_HOME%
+                REM Force Java 21
+                set JAVA_HOME=C:\\Program Files\\Java\\jdk-21
                 set PATH=%JAVA_HOME%\\bin;%PATH%
 
                 java -version
 
-                REM -------------------------------
-                REM FULL CLEAN (Fix empty graphs)
-                REM -------------------------------
-                if exist "jmeter\\results" rmdir /s /q "jmeter\\results"
-                mkdir "jmeter\\results"
+                REM Prepare folders
+                if not exist "jmeter\\results" mkdir "jmeter\\results"
 
+                REM Clean old JTL (Fix: file not empty)
+                if exist "jmeter\\results\\result.jtl" del /q "jmeter\\results\\result.jtl"
+
+                REM Clean old HTML report
                 if exist "jmeter\\report" rmdir /s /q "jmeter\\report"
 
-                REM -------------------------------
-                REM Run JMeter (CSV output is correct)
-                REM -------------------------------
-                java -jar "%JMETER_JAR%" -n ^
-                  -t "jmeter\\testplans\\orangehrm_login_load_test.jmx" ^
-                  -l "jmeter\\results\\result.jtl" ^
-                  -e -o "jmeter\\report"
+                echo Starting JMeter execution...
 
-                echo JMeter Test Completed!
+                REM Run JMeter Test + Generate Dashboard
+                java -jar "D:\\JMeter\\apache-jmeter-5.6.3\\bin\\ApacheJMeter.jar" ^
+                -n ^
+                -t "jmeter\\testplans\\orangehrm_login_load_test.jmx" ^
+                -l "jmeter\\results\\result.jtl" ^
+                -e -o "jmeter\\report" ^
+                -Jjmeter.save.saveservice.output_format=csv ^
+                -Jjmeter.save.saveservice.print_field_names=true ^
+                -Jjmeter.save.saveservice.timestamp_format=ms
+
+                echo ==========================================
+                echo JMeter Test Completed Successfully!
+                echo ==========================================
                 """
             }
         }
 
-        stage("Archive Test Results") {
+        stage("Archive JTL Results") {
             steps {
-                archiveArtifacts artifacts: 'jmeter/results/*.jtl', fingerprint: true
+                archiveArtifacts artifacts: "jmeter/results/result.jtl", fingerprint: true
             }
         }
 
-        stage("Publish HTML Report") {
+        stage("Publish HTML Dashboard") {
             steps {
-                publishHTML([
-                    reportDir: 'jmeter/report',
-                    reportFiles: 'index.html',
-                    reportName: 'OrangeHRM Performance Test Report',
+                publishHTML(target: [
+                    reportDir: "jmeter/report",
+                    reportFiles: "index.html",
+                    reportName: "OrangeHRM JMeter Performance Report",
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: false
                 ])
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline SUCCESS! JMeter Dashboard Published."
+        }
+        failure {
+            echo "❌ Pipeline FAILED! Check Console Output."
         }
     }
 }
