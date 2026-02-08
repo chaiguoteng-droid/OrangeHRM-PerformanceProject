@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        JMETER_BIN = "D:\\JMeter\\apache-jmeter-5.6.3\\bin\\jmeter.bat"
+    }
+
     stages {
 
         stage("Checkout") {
@@ -9,63 +13,34 @@ pipeline {
             }
         }
 
-        stage("Run JMeter Load Test (Docker)") {
+        stage("Run JMeter Load Test") {
             steps {
-                echo "🚀 Running OrangeHRM Login Load Test using Docker JMeter..."
+                bat """
+                echo Running OrangeHRM Login Load Test...
 
-                sh """
-                echo "=========================================="
-                echo "Preparing folders..."
-                echo "=========================================="
+                if not exist jmeter\\results mkdir jmeter\\results
+                if exist jmeter\\report rmdir /s /q jmeter\\report
 
-                mkdir -p jmeter/results
-                rm -rf jmeter/report
-
-                echo "=========================================="
-                echo "Executing JMeter Test Plan..."
-                echo "=========================================="
-
-                docker run --rm \
-                  -v \$(pwd):/tests \
-                  justb4/jmeter \
-                  -n \
-                  -t /tests/jmeter/testplans/orangehrm_login_load_test.jmx \
-                  -l /tests/jmeter/results/result.jtl \
-                  -e -o /tests/jmeter/report
+                %JMETER_BIN% -n ^
+                  -t jmeter\\testplans\\orangehrm_login_load_test.jmx ^
+                  -l jmeter\\results\\result.jtl ^
+                  -e -o jmeter\\report
                 """
             }
         }
 
         stage("Publish HTML Report") {
             steps {
-                echo "📊 Publishing JMeter HTML Report..."
-
                 publishHTML([
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
                     reportDir: 'jmeter/report',
                     reportFiles: 'index.html',
-                    reportName: 'OrangeHRM Performance Test Report'
+                    reportName: 'OrangeHRM Performance Test Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: false
                 ])
             }
         }
     }
-
-    post {
-        always {
-            echo "📦 Archiving artifacts..."
-
-            archiveArtifacts artifacts: 'jmeter/results/*.jtl', fingerprint: true
-            archiveArtifacts artifacts: 'jmeter/report/**', fingerprint: false
-        }
-
-        success {
-            echo "✅ Performance Test Completed Successfully!"
-        }
-
-        failure {
-            echo "❌ Performance Test Failed! Check console output."
-        }
-    }
 }
+
